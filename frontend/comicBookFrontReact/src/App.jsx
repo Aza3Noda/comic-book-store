@@ -15,8 +15,11 @@ function App() {
       {comics.map(c => (
         <div key={c.id}>
           <h3>{c.title}</h3>
-          <p>{c.author}</p>
-          <p>{c.price} €</p>
+          <p>{c.publisher}</p>
+          <p>{c.price} USD</p>
+          <p>{c.characters} characters</p>
+          <p>{c.pages} pages</p>
+          <p>{c.description} description</p>
         </div>
       ))}
     </div>
