@@ -13,15 +13,19 @@ public class Comic {
     private int pages;
     private String description;
     private String characters;
+    private String imageUrl;
+    private int stock;
 
-    public Comic(String title, String publisher, float price, int pages, String description, String characters) {
+    public Comic(String title, String publisher, float price, int pages, String description, String characters,  String imageUrl,  int stock) {
         this.title = title;
         this.publisher = publisher;
         this.price = price;
         this.pages = pages;
         this.description = description;
         this.characters = characters;
-        //function aplicar descuento
+        this.imageUrl = imageUrl;
+        this.stock = stock;
+        //function aplicar descuento pero no  va aqui
     }
 
     public void setTitle(String title) {
@@ -42,6 +46,8 @@ public class Comic {
     public void setCharacters(String characters) {
         this.characters = characters;
     }
+    public void setImageUrl(String imageUrl) {this.imageUrl = imageUrl;}
+    public void setStock(int stock) {this.stock = stock;}
     public int getId() {return id;}
     public String getTitle() {return title;}
     public String getPublisher() {return publisher;}
@@ -49,5 +55,6 @@ public class Comic {
     public int getPages() {return pages;}
     public String getDescription() {return description;}
     public String getCharacters() {return characters;}
-
+    public String getImageUrl() {return imageUrl;}
+    public int getStock() {return stock;}
 }
