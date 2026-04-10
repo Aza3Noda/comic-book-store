@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from "react";
 import "./App.css";
 
 const API_URL = "http://localhost:8080/comics";
+const AUTH_URL = "http://localhost:8080/auth/login";
 
 // Vibrant palette cycling based on title first char
 const COVER_PALETTES = [
@@ -23,12 +24,10 @@ function ComicPlaceholder({ title, author }) {
   return (
     <svg viewBox="0 0 200 300" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%">
       <rect width="200" height="300" fill={bg} />
-      {/* Corner accents */}
       <rect x="0"   y="0"   width="200" height="6" fill={accent} />
       <rect x="0"   y="294" width="200" height="6" fill={accent} />
       <rect x="0"   y="0"   width="6"   height="300" fill={accent} />
       <rect x="194" y="0"   width="6"   height="300" fill={accent} />
-      {/* Dot grid pattern */}
       {[...Array(5)].map((_, r) =>
         [...Array(4)].map((_, c) => (
           <circle
@@ -41,11 +40,9 @@ function ComicPlaceholder({ title, author }) {
           />
         ))
       )}
-      {/* Diagonal stripe decoration */}
       <line x1="0"   y1="60"  x2="60"  y2="0"   stroke={accent} strokeWidth="1" opacity="0.1" />
       <line x1="0"   y1="100" x2="100" y2="0"   stroke={accent} strokeWidth="1" opacity="0.1" />
       <line x1="0"   y1="140" x2="140" y2="0"   stroke={accent} strokeWidth="1" opacity="0.07" />
-      {/* Initials */}
       <text
         x="100" y="155"
         textAnchor="middle"
@@ -58,9 +55,7 @@ function ComicPlaceholder({ title, author }) {
       >
         {initials}
       </text>
-      {/* Divider */}
       <rect x="20" y="230" width="160" height="1.5" fill={accent} opacity="0.4" />
-      {/* Author label */}
       <text
         x="100" y="255"
         textAnchor="middle"
@@ -98,6 +93,13 @@ export default function App() {
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [submitting, setSubmitting] = useState(false);
 
+  // Security State
+  const [isAdmin, setIsAdmin]       = useState(false);
+  const [showLogin, setShowLogin]   = useState(false);
+  const [authHeader, setAuthHeader] = useState(null);
+  const [loginForm, setLoginForm]   = useState({ username: "", password: "" });
+  const [loginError, setLoginError] = useState("");
+
   const fetchComics = useCallback(async (q = "") => {
     setLoading(true);
     try {
@@ -113,14 +115,44 @@ export default function App() {
     }
   }, []);
 
-  // Initial load
   useEffect(() => { fetchComics(); }, [fetchComics]);
 
-  // Debounced search
   useEffect(() => {
     const t = setTimeout(() => fetchComics(search), 400);
     return () => clearTimeout(t);
   }, [search, fetchComics]);
+
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    setSubmitting(true);
+    setLoginError("");
+    
+    const encoded = btoa(`${loginForm.username}:${loginForm.password}`);
+    const header = `Basic ${encoded}`;
+
+    try {
+      const res = await fetch(AUTH_URL, {
+        headers: { "Authorization": header }
+      });
+      if (res.ok) {
+        setIsAdmin(true);
+        setAuthHeader(header);
+        setShowLogin(false);
+        setLoginForm({ username: "", password: "" });
+      } else {
+        setLoginError("Invalid credentials. Please try again.");
+      }
+    } catch (err) {
+      setLoginError("Could not connect to security server.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleLogout = () => {
+    setIsAdmin(false);
+    setAuthHeader(null);
+  };
 
   const openAdd = () => {
     setEditingComic(null);
@@ -153,29 +185,33 @@ export default function App() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!isAdmin) return;
     setSubmitting(true);
-    // Fix: properly convert types before sending
     const payload = {
       ...form,
       price: parseFloat(form.price)  || 0,
       pages: parseInt(form.pages, 10) || 0,
     };
     try {
-      if (editingComic) {
-        await fetch(`${API_URL}/${editingComic.id}`, {
-          method:  "PUT",
-          headers: { "Content-Type": "application/json" },
-          body:    JSON.stringify(payload),
-        });
+      const config = {
+        method:  editingComic ? "PUT" : "POST",
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": authHeader
+        },
+        body: JSON.stringify(payload),
+      };
+      
+      const url = editingComic ? `${API_URL}/${editingComic.id}` : API_URL;
+      const res = await fetch(url, config);
+      
+      if (res.status === 401 || res.status === 403) {
+        handleLogout();
+        alert("Session expired. Please log in again.");
       } else {
-        await fetch(API_URL, {
-          method:  "POST",
-          headers: { "Content-Type": "application/json" },
-          body:    JSON.stringify(payload),
-        });
+        closeModal();
+        fetchComics(search);
       }
-      closeModal();
-      fetchComics(search);
     } catch (err) {
       console.error("Failed to save comic:", err);
     } finally {
@@ -184,10 +220,19 @@ export default function App() {
   };
 
   const handleDelete = async (id) => {
+    if (!isAdmin) return;
     try {
-      await fetch(`${API_URL}/${id}`, { method: "DELETE" });
-      setDeleteTarget(null);
-      fetchComics(search);
+      const res = await fetch(`${API_URL}/${id}`, { 
+        method: "DELETE",
+        headers: { "Authorization": authHeader }
+      });
+      if (res.status === 401 || res.status === 403) {
+        handleLogout();
+        alert("Session expired. Please log in again.");
+      } else {
+        setDeleteTarget(null);
+        fetchComics(search);
+      }
     } catch (err) {
       console.error("Failed to delete comic:", err);
     }
@@ -209,7 +254,7 @@ export default function App() {
               <input
                 id="search-input"
                 type="text"
-                placeholder="Search by title or author…"
+                placeholder="Search catalog…"
                 value={search}
                 onChange={e => setSearch(e.target.value)}
               />
@@ -217,9 +262,18 @@ export default function App() {
                 <button className="search-clear" onClick={() => setSearch("")}>✕</button>
               )}
             </div>
-            <button id="add-comic-btn" className="btn-primary" onClick={openAdd}>
-              + Add Comic
-            </button>
+            {isAdmin ? (
+              <button id="add-comic-btn" className="btn-primary" onClick={openAdd}>
+                + Add Comic
+              </button>
+            ) : (
+              <button className="btn-secondary" onClick={() => setShowLogin(true)}>
+                🔑 Admin
+              </button>
+            )}
+            {isAdmin && (
+              <button className="btn-icon" title="Logout" onClick={handleLogout}>🚪</button>
+            )}
           </div>
         </div>
       </header>
@@ -246,9 +300,9 @@ export default function App() {
             <p>
               {search
                 ? `No results for "${search}". Try a different search.`
-                : "Your catalog is empty. Add your first comic to get started!"}
+                : "Your catalog is empty."}
             </p>
-            {!search && (
+            {!search && isAdmin && (
               <button className="btn-primary" onClick={openAdd}>+ Add Comic</button>
             )}
           </div>
@@ -256,8 +310,6 @@ export default function App() {
           <div className="comics-grid">
             {comics.map(comic => (
               <article key={comic.id} className="comic-card">
-
-                {/* Cover */}
                 <div className="comic-cover">
                   {comic.imageUrl ? (
                     <>
@@ -283,7 +335,6 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* Info */}
                 <div className="comic-info">
                   <h3 className="comic-title">{comic.title}</h3>
                   <p className="comic-author">{comic.author}</p>
@@ -301,137 +352,161 @@ export default function App() {
                   <div className="comic-footer">
                     <span className="comic-price">€{parseFloat(comic.price).toFixed(2)}</span>
                     <div className="comic-actions">
-                      <button
-                        className="btn-icon btn-edit"
-                        title="Edit comic"
-                        onClick={() => openEdit(comic)}
+                      <a 
+                        href={`https://wa.me/5352946335?text=${encodeURIComponent(
+                          `Hello! I'm interested in buying "${comic.title}" for €${parseFloat(comic.price).toFixed(2)}.`
+                        )}`} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="btn-buy"
                       >
-                        ✏️
-                      </button>
-                      <button
-                        className="btn-icon btn-delete"
-                        title="Delete comic"
-                        onClick={() => setDeleteTarget(comic)}
-                      >
-                        🗑️
-                      </button>
+                        Buy Now
+                      </a>
+                      {isAdmin && (
+                        <div className="admin-actions">
+                          <button
+                            className="btn-icon btn-edit"
+                            title="Edit comic"
+                            onClick={() => openEdit(comic)}
+                          >
+                            ✏️
+                          </button>
+                          <button
+                            className="btn-icon btn-delete"
+                            title="Delete comic"
+                            onClick={() => setDeleteTarget(comic)}
+                          >
+                            🗑️
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
-
               </article>
             ))}
           </div>
         )}
       </main>
 
+      {/* ── Login Modal ─────────────────────── */}
+      {showLogin && (
+        <div className="modal-backdrop" onClick={() => setShowLogin(false)}>
+          <div className="modal modal-login" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>Admin Login</h2>
+              <button className="modal-close" onClick={() => setShowLogin(false)}>✕</button>
+            </div>
+            <form className="modal-form" onSubmit={handleLogin}>
+              {loginError && <div className="error-alert">{loginError}</div>}
+              <div className="form-group">
+                <label>Username</label>
+                <input
+                  type="text"
+                  required
+                  value={loginForm.username}
+                  onChange={e => setLoginForm({...loginForm, username: e.target.value})}
+                />
+              </div>
+              <div className="form-group">
+                <label>Password</label>
+                <input
+                  type="password"
+                  required
+                  value={loginForm.password}
+                  onChange={e => setLoginForm({...loginForm, password: e.target.value})}
+                />
+              </div>
+              <div className="form-actions">
+                <button type="submit" className="btn-primary" disabled={submitting}>
+                  {submitting ? "Verifying..." : "Login"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* ── Add / Edit Modal ─────────────────── */}
-      {showModal && (
+      {isAdmin && showModal && (
         <div className="modal-backdrop" onClick={closeModal}>
           <div className="modal" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <h2>{editingComic ? "Edit Comic" : "Add New Comic"}</h2>
               <button className="modal-close" onClick={closeModal}>✕</button>
             </div>
-
             <form className="modal-form" onSubmit={handleSubmit}>
               <div className="form-row">
                 <div className="form-group">
-                  <label htmlFor="form-title">Title *</label>
+                  <label>Title *</label>
                   <input
-                    id="form-title"
                     required
-                    placeholder="e.g. The Dark Knight Returns"
                     value={form.title}
                     onChange={e => setField("title", e.target.value)}
                   />
                 </div>
                 <div className="form-group">
-                  <label htmlFor="form-author">Author *</label>
+                  <label>Author *</label>
                   <input
-                    id="form-author"
                     required
-                    placeholder="e.g. Frank Miller"
                     value={form.author}
                     onChange={e => setField("author", e.target.value)}
                   />
                 </div>
               </div>
-
               <div className="form-row">
                 <div className="form-group">
-                  <label htmlFor="form-price">Price (€)</label>
+                  <label>Price (€)</label>
                   <input
-                    id="form-price"
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    placeholder="12.99"
+                    type="number" step="0.01"
                     value={form.price}
                     onChange={e => setField("price", e.target.value)}
                   />
                 </div>
                 <div className="form-group">
-                  <label htmlFor="form-pages">Pages</label>
+                  <label>Pages</label>
                   <input
-                    id="form-pages"
                     type="number"
-                    min="0"
-                    placeholder="200"
                     value={form.pages}
                     onChange={e => setField("pages", e.target.value)}
                   />
                 </div>
               </div>
-
               <div className="form-group">
-                <label htmlFor="form-characters">Characters</label>
+                <label>Characters</label>
                 <input
-                  id="form-characters"
-                  placeholder="e.g. Batman, Joker"
                   value={form.characters}
                   onChange={e => setField("characters", e.target.value)}
                 />
               </div>
-
               <div className="form-group">
-                <label htmlFor="form-description">Description</label>
+                <label>Description</label>
                 <textarea
-                  id="form-description"
-                  placeholder="A brief synopsis…"
                   rows={3}
                   value={form.description}
                   onChange={e => setField("description", e.target.value)}
                 />
               </div>
-
               <div className="form-group">
-                <label htmlFor="form-imageUrl">Cover Image URL</label>
+                <label>Cover Image URL</label>
                 <input
-                  id="form-imageUrl"
                   type="url"
-                  placeholder="https://example.com/cover.jpg"
                   value={form.imageUrl}
                   onChange={e => setField("imageUrl", e.target.value)}
                 />
               </div>
-
               <div className="form-check">
                 <input
-                  id="form-stock"
                   type="checkbox"
                   checked={form.stock}
                   onChange={e => setField("stock", e.target.checked)}
                 />
-                <label htmlFor="form-stock">In Stock</label>
+                <label>In Stock</label>
               </div>
-
               <div className="form-actions">
-                <button type="button" className="btn-secondary" onClick={closeModal}>
-                  Cancel
-                </button>
+                <button type="button" className="btn-secondary" onClick={closeModal}>Cancel</button>
                 <button type="submit" className="btn-primary" disabled={submitting}>
-                  {submitting ? "Saving…" : (editingComic ? "Save Changes" : "Add Comic")}
+                  {submitting ? "Saving..." : (editingComic ? "Save Changes" : "Add Comic")}
                 </button>
               </div>
             </form>
@@ -440,24 +515,14 @@ export default function App() {
       )}
 
       {/* ── Delete Confirmation ──────────────── */}
-      {deleteTarget && (
+      {isAdmin && deleteTarget && (
         <div className="modal-backdrop" onClick={() => setDeleteTarget(null)}>
           <div className="modal modal-confirm" onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h2>Delete Comic</h2>
-            </div>
-            <p>
-              Are you sure you want to delete{" "}
-              <strong>"{deleteTarget.title}"</strong>?
-              This action cannot be undone.
-            </p>
+            <div className="modal-header"><h2>Delete Comic</h2></div>
+            <p>Are you sure you want to delete <strong>"{deleteTarget.title}"</strong>?</p>
             <div className="form-actions">
-              <button className="btn-secondary" onClick={() => setDeleteTarget(null)}>
-                Cancel
-              </button>
-              <button className="btn-danger" onClick={() => handleDelete(deleteTarget.id)}>
-                Delete
-              </button>
+              <button className="btn-secondary" onClick={() => setDeleteTarget(null)}>Cancel</button>
+              <button className="btn-danger" onClick={() => handleDelete(deleteTarget.id)}>Delete</button>
             </div>
           </div>
         </div>
