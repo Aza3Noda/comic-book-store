@@ -38,8 +38,16 @@ This project was created as a portfolio piece to demonstrate:
 
 ## Disclaimer
 
+## Disclaimer
+
+## Disclaimer
+
 This project is for educational and portfolio purposes only.
 
-All comic book data shown is either mock data or user-provided content. No copyrighted images, trademarks, or proprietary content are included in this repository.
+All comic book data displayed is mock or user-provided content.
 
-Any resemblance to real products is for demonstration purposes only.
+Any images included are either original photographs taken for demonstration purposes or generated placeholders. Where real-world items appear, they are shown only to illustrate the functionality of the application.
+
+This repository does not aim to reproduce, distribute, or commercially exploit any copyrighted material.
+
+All trademarks, brand names, and copyrighted content belong to their respective owners. No affiliation or endorsement is implied.
