@@ -2,37 +2,39 @@
 
 :root {
   /* Colors */
-  --bg:          #0d0d14;
-  --surface:     #13131f;
-  --card:        #1a1a2e;
-  --card-hover:  #1f2040;
-  --border:      #2a2a42;
-  --border-light:#363660;
+  --bg: #0d0d14;
+  --surface: #13131f;
+  --card: #1a1a2e;
+  --card-hover: #1f2040;
+  --border: #2a2a42;
+  --border-light: #363660;
 
-  --accent:      #e94560;
+  --accent: #e94560;
   --accent-soft: rgba(233, 69, 96, 0.15);
   --accent-glow: rgba(233, 69, 96, 0.3);
 
-  --text:        #c8c8d8;
-  --text-muted:  #7a7a9a;
+  --text: #c8c8d8;
+  --text-muted: #7a7a9a;
   --text-bright: #f0f0f8;
 
-  --green:       #22c55e;
-  --green-soft:  rgba(34, 197, 94, 0.15);
-  --red-soft:    rgba(239, 68, 68, 0.15);
+  --green: #22c55e;
+  --green-soft: rgba(34, 197, 94, 0.15);
+  --red-soft: rgba(239, 68, 68, 0.15);
 
-  --shadow-sm:   0 2px 8px rgba(0,0,0,0.4);
-  --shadow-md:   0 8px 24px rgba(0,0,0,0.5);
-  --shadow-lg:   0 20px 60px rgba(0,0,0,0.6);
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 20px 60px rgba(0, 0, 0, 0.6);
 
-  --radius-sm:   8px;
-  --radius-md:   12px;
-  --radius-lg:   16px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
 
   --font: 'Inter', system-ui, sans-serif;
 }
 
-*, *::before, *::after {
+*,
+*::before,
+*::after {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
@@ -59,7 +61,9 @@ button {
   outline: none;
 }
 
-input, textarea, select {
+input,
+textarea,
+select {
   font-family: var(--font);
   outline: none;
 }
@@ -69,14 +73,31 @@ img {
   max-width: 100%;
 }
 
-h1, h2, h3, h4 {
+h1,
+h2,
+h3,
+h4 {
   color: var(--text-bright);
   line-height: 1.2;
 }
 
-p { margin: 0; }
+p {
+  margin: 0;
+}
 
-::-webkit-scrollbar        { width: 8px; }
-::-webkit-scrollbar-track  { background: var(--surface); }
-::-webkit-scrollbar-thumb  { background: var(--border-light); border-radius: 4px; }
-::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--surface);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-light);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}

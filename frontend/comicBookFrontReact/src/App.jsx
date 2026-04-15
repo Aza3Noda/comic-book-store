@@ -1,8 +1,11 @@
 import { useEffect, useState, useCallback } from "react";
 import "./App.css";
 
-const API_URL = "http://localhost:8080/comics";
-const AUTH_URL = "http://localhost:8080/auth/login";
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "http://localhost:8080").replace(/\/+$/, "");
+const API_URL = `${API_BASE_URL}/comics`;
+const AUTH_URL = `${API_BASE_URL}/auth/login`;
+const CLOUDINARY_SIGNATURE_URL = `${API_BASE_URL}/cloudinary/signature`;
+const TOKEN_STORAGE_KEY = "comicvault_admin_token";
 
 // Vibrant palette cycling based on title first char
 const COVER_PALETTES = [
@@ -96,9 +99,19 @@ export default function App() {
   // Security State
   const [isAdmin, setIsAdmin]       = useState(false);
   const [showLogin, setShowLogin]   = useState(false);
-  const [authHeader, setAuthHeader] = useState(null);
+  const [token, setToken]           = useState(null);
   const [loginForm, setLoginForm]   = useState({ username: "", password: "" });
   const [loginError, setLoginError] = useState("");
+  const [coverFile, setCoverFile]   = useState(null);
+  const [uploadingCover, setUploadingCover] = useState(false);
+
+  useEffect(() => {
+    const existing = localStorage.getItem(TOKEN_STORAGE_KEY);
+    if (existing) {
+      setToken(existing);
+      setIsAdmin(true);
+    }
+  }, []);
 
   const fetchComics = useCallback(async (q = "") => {
     setLoading(true);
@@ -126,17 +139,21 @@ export default function App() {
     e.preventDefault();
     setSubmitting(true);
     setLoginError("");
-    
-    const encoded = btoa(`${loginForm.username}:${loginForm.password}`);
-    const header = `Basic ${encoded}`;
 
     try {
       const res = await fetch(AUTH_URL, {
-        headers: { "Authorization": header }
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          username: loginForm.username,
+          password: loginForm.password,
+        }),
       });
       if (res.ok) {
+        const data = await res.json();
+        localStorage.setItem(TOKEN_STORAGE_KEY, data.token);
+        setToken(data.token);
         setIsAdmin(true);
-        setAuthHeader(header);
         setShowLogin(false);
         setLoginForm({ username: "", password: "" });
       } else {
@@ -151,7 +168,8 @@ export default function App() {
 
   const handleLogout = () => {
     setIsAdmin(false);
-    setAuthHeader(null);
+    setToken(null);
+    localStorage.removeItem(TOKEN_STORAGE_KEY);
   };
 
   const openAdd = () => {
@@ -179,9 +197,54 @@ export default function App() {
     setShowModal(false);
     setEditingComic(null);
     setForm(EMPTY_FORM);
+    setCoverFile(null);
   };
 
   const setField = (key, val) => setForm(f => ({ ...f, [key]: val }));
+
+  const uploadCoverToCloudinary = async () => {
+    if (!coverFile) return;
+    if (!token) {
+      alert("Please log in as admin first.");
+      return;
+    }
+
+    setUploadingCover(true);
+    try {
+      const sigRes = await fetch(`${CLOUDINARY_SIGNATURE_URL}?folder=comics`, {
+        headers: { "Authorization": `Bearer ${token}` },
+      });
+      if (!sigRes.ok) {
+        throw new Error("Could not get upload signature from backend.");
+      }
+      const sig = await sigRes.json();
+
+      const formData = new FormData();
+      formData.append("file", coverFile);
+      formData.append("api_key", sig.apiKey);
+      formData.append("timestamp", String(sig.timestamp));
+      formData.append("folder", sig.folder);
+      formData.append("signature", sig.signature);
+
+      const uploadUrl = `https://api.cloudinary.com/v1_1/${sig.cloudName}/image/upload`;
+      const upRes = await fetch(uploadUrl, {
+        method: "POST",
+        body: formData,
+      });
+      const upData = await upRes.json();
+      if (!upRes.ok) {
+        throw new Error(upData?.error?.message || "Cloudinary upload failed.");
+      }
+
+      setField("imageUrl", upData.secure_url);
+      setCoverFile(null);
+    } catch (e) {
+      console.error(e);
+      alert(e?.message || "Upload failed.");
+    } finally {
+      setUploadingCover(false);
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -197,7 +260,7 @@ export default function App() {
         method:  editingComic ? "PUT" : "POST",
         headers: { 
           "Content-Type": "application/json",
-          "Authorization": authHeader
+          "Authorization": `Bearer ${token}`
         },
         body: JSON.stringify(payload),
       };
@@ -224,7 +287,7 @@ export default function App() {
     try {
       const res = await fetch(`${API_URL}/${id}`, { 
         method: "DELETE",
-        headers: { "Authorization": authHeader }
+        headers: { "Authorization": `Bearer ${token}` }
       });
       if (res.status === 401 || res.status === 403) {
         handleLogout();
@@ -488,12 +551,28 @@ export default function App() {
                 />
               </div>
               <div className="form-group">
-                <label>Cover Image URL</label>
-                <input
-                  type="url"
-                  value={form.imageUrl}
-                  onChange={e => setField("imageUrl", e.target.value)}
-                />
+                <label>Cover Image</label>
+                <div style={{ display: "grid", gap: 8 }}>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={e => setCoverFile(e.target.files?.[0] || null)}
+                  />
+                  <button
+                    type="button"
+                    className="btn-secondary"
+                    onClick={uploadCoverToCloudinary}
+                    disabled={!coverFile || uploadingCover}
+                  >
+                    {uploadingCover ? "Uploading..." : "Upload to Cloudinary"}
+                  </button>
+                  <input
+                    type="url"
+                    placeholder="...or paste an image URL"
+                    value={form.imageUrl}
+                    onChange={e => setField("imageUrl", e.target.value)}
+                  />
+                </div>
               </div>
               <div className="form-check">
                 <input

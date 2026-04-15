@@ -52,7 +52,7 @@
 .header-right {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 16px;
   flex: 1;
   justify-content: flex-end;
 }
@@ -363,7 +363,40 @@
 
 .comic-actions {
   display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.admin-actions {
+  display: flex;
   gap: 6px;
+  padding-left: 12px;
+  border-left: 1px solid var(--border);
+}
+
+.btn-buy {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 8px 16px;
+  border-radius: var(--radius-sm);
+  text-decoration: none;
+  transition: transform 0.2s, box-shadow 0.2s, filter 0.2s;
+  box-shadow: 0 4px 10px rgba(37, 99, 235, 0.2);
+}
+
+.btn-buy:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.1);
+  box-shadow: 0 6px 15px rgba(37, 99, 235, 0.3);
+}
+
+.btn-buy:active {
+  transform: translateY(0);
 }
 
 /* ─── Loading skeletons ──────────────────────────── */
@@ -449,6 +482,22 @@
   overflow-y: auto;
   box-shadow: var(--shadow-lg);
   animation: slideUp 0.2s ease;
+}
+
+.modal-login {
+  max-width: 400px;
+}
+
+.error-alert {
+  background: var(--red-soft);
+  color: #f87171;
+  padding: 12px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 500;
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  margin-bottom: 16px;
+  text-align: center;
 }
 
 .modal-confirm {
