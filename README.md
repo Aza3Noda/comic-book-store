@@ -38,10 +38,6 @@ This project was created as a portfolio piece to demonstrate:
 
 ## Disclaimer
 
-## Disclaimer
-
-## Disclaimer
-
 This project is for educational and portfolio purposes only.
 
 All comic book data displayed is mock or user-provided content.
